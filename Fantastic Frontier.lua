@@ -355,6 +355,7 @@ local function followAndAim(dt)
             return
         else
             Fighting = true
+            flyToTarget(game.Players.LocalPlayer.Character.HumanoidRootPart.Position, Vector3.new(12690 , 231, -2360), flySpeed)
             task.delay(10, function()
                 startPos = game.Players.LocalPlayer.Character.HumanoidRootPart.Position
                 endPos = Reward
