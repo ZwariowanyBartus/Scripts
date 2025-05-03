@@ -123,6 +123,71 @@ local textSize = 18
 local activeHighlights = {}
 ---------------------------------------------------------------------------------------
 --FUNCTIONS
+--Webhook
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local function sendInventoryWebhook()
+    local player = Players.LocalPlayer
+    local inventory = player:WaitForChild("Inventory")
+    local itemInfoFolder = ReplicatedStorage:WaitForChild("ItemInfo")
+    
+    -- Get gold value
+    local stats = player:WaitForChild("Stats")
+    local gold = stats:WaitForChild("Gold")
+    local goldValue = gold.Value
+    
+    local inventoryFields = {}
+    local totalValue = 0
+    
+    for _, itemSlot in pairs(inventory:GetChildren()) do
+        local itemCode = itemSlot.Value
+        if itemCode ~= 0 then 
+            local itemData = itemInfoFolder:FindFirstChild(tostring(itemCode))
+            if itemData then
+                local name = itemData:FindFirstChild("FullName")
+                local value = itemData:FindFirstChild("SellValue")
+                if name and value then
+                    table.insert(inventoryFields, {
+                        name = name.Value,
+                        value = string.format("💵 Value: $%d", value.Value),
+                        inline = true
+                    })
+                    totalValue = totalValue + value.Value
+                end
+            end
+        end
+    end
+    
+    local success, response = request({
+        Url = "https://discord.com/api/webhooks/1368300280193745076/85zkCfWStQekxuadO0F-zphwm9PFc7g09bo2D2PdVRdWomFepg3qPtcfWFZQjRl3dWEP",
+        Method = "POST",
+        Headers = {
+            ["Content-Type"] = "application/json"
+        },
+        Body = HttpService:JSONEncode({
+            embeds = {{
+                title = "📦 Player Inventory Report",
+                description = string.format(
+                    "%s's Inventory\n📦 Total Inventory Value: $%d\n💰 Current Gold: $%d",
+                    player.DisplayName,
+                    totalValue,
+                    goldValue
+                ),
+                color = 0x00FF00,
+                fields = inventoryFields,
+                timestamp = DateTime.now():ToIsoDate()
+            }}
+        })
+    })
+    
+    if not success then
+        warn("Failed to send inventory webhook:", response)
+    end
+end
+
+
 --Flying
 local function flyToTarget(startPos, endPos, speed)
     local char = game.Players.LocalPlayer.Character
@@ -149,6 +214,10 @@ end
 local function sellItems(itemsToSell)
     if Selling or Fighting then return end
     Selling = true
+
+    sendInventoryWebhook()
+
+    wait(3)
 
     local player = game.Players.LocalPlayer
     local char = player.Character
@@ -293,15 +362,13 @@ local function followAndAim(dt)
                 wait(1)
                 workspace:WaitForChild("Guttermouth"):WaitForChild("GuttermouthRoom4"):WaitForChild("ClaimRewards"):InvokeServer()
                 wait(1)
-                if Selling then
-                    Fighting = false
-                end
                 startPos = game.Players.LocalPlayer.Character.HumanoidRootPart.Position
                 endPos = LostExit
                 flyToTarget(startPos, endPos, flySpeed)
                 wait(1)
                 workspace:WaitForChild("Guttermouth"):WaitForChild("GuttermouthRoom4"):WaitForChild("GutterExit"):WaitForChild("InteractEvent"):FireServer()
-                wait(1)
+                wait(2)
+                if Selling then return end
                 workspace:WaitForChild("Guttermouth"):WaitForChild("Door_GuttermouthPhantom (Hidden Key)"):WaitForChild("InteractEvent"):FireServer()
                 Fighting = false
             end)
@@ -487,7 +554,6 @@ VisualsTab:CreateButton({
         end
     end
 })
-
 local Label = VisualsTab:CreateLabel("Run around map so models for esp can load")
 local Section = VisualsTab:CreateSection("NPC's", 0)
 local textSize = 18
@@ -645,7 +711,17 @@ SettingsTab:CreateButton({
     end,
 })
 
-
+local Slider = SettingsTab:CreateSlider({
+    Name = "Slider Example",
+    Range = {1, 20},
+    Increment = 1,
+    Suffix = "Items",
+    CurrentValue = 10,
+    Flag = "Slider1", 
+    Callback = function(Value)
+        SellAt = Value
+   end,
+})
 ---------------------------------------------------------------------------------------
 --INFO
 
@@ -702,3 +778,13 @@ DebugTab:CreateButton({
         print(autoLost)
     end,
 })
+
+DebugTab:CreateButton({
+    Name = "AutoSellAt",
+    Callback = function()
+        print(SellAt)
+    end,
+})
+
+
+---------------------------------------------------------------------------------------
